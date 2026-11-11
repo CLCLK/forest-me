@@ -18,4 +18,4 @@
 - `timburton1.jpg`, `timburton2.jpg`: 프로젝트 참고 이미지
 - `AGENTS.md`, `.agents/`: 프로젝트 작업 규칙과 지침
 
-GitHub 저장소: <https://github.com/CLCLK/forest-me> (비공개)
+GitHub 저장소: <https://github.com/CLCLK/forest-me> (공개)
