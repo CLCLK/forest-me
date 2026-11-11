@@ -2,6 +2,13 @@
 
 마우스 움직임과 웹캠에 반응하는 인터랙티브 숲 실습 프로젝트입니다.
 
+## 공유 링크로 실행
+
+<https://clclk.github.io/forest-me/>
+
+별도 설치 없이 Chrome 또는 Edge에서 열 수 있습니다. 웹캠 기능을 쓰려면 카메라 사용을 허용해 주세요.
+`main` 브랜치의 변경 사항은 GitHub Pages에 자동으로 배포됩니다.
+
 ## 실행 방법
 
 1. Python이 설치된 Windows에서 `practice-01/start.cmd`를 두 번 클릭합니다.
