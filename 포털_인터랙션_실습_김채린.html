@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>원을 그려, 극한의 휴양지로.</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#080c16;color:#eef5ff;font-family:system-ui,sans-serif;overflow:hidden}video,canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}video{transform:scaleX(-1);opacity:.8}canvas{touch-action:none}header{position:absolute;top:32px;left:36px;pointer-events:none}small{letter-spacing:.24em;color:#84e6ed;font-size:11px}h1{font-size:30px;font-weight:500;margin:10px 0}p{color:#aebbd0;font-size:14px;line-height:1.7}footer{position:absolute;bottom:28px;left:36px;right:36px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}button{border:1px solid #ffffff35;border-radius:30px;padding:12px 20px;background:#152337;color:white;cursor:pointer}button:first-child{background:#c3fff0;color:#102622}button:disabled{opacity:.5;cursor:wait}#status{font-size:13px;color:#c1cfe0;margin-left:auto;max-width:500px}#hint{position:absolute;top:36px;right:36px;font-size:12px;color:#9caec7} @media(max-width:600px){header{left:20px;top:20px}h1{font-size:24px}#hint{display:none}footer{left:20px;right:20px}#status{width:100%}}
+</style>
+<style>
+#credits{position:absolute;right:36px;top:62px;max-width:290px;font-size:10px;color:#c1cfe0;z-index:2}#credits summary{cursor:pointer;text-align:right}#credits[open]{padding:12px;background:#101723e8;border:1px solid #ffffff28;border-radius:10px}#credits p{font-size:10px;margin:8px 0 0;line-height:1.6}#credits a{color:inherit}@media(max-width:600px){#credits{top:14px;right:14px;max-width:220px}}
+</style>
+<style>
+#shape-notice{position:fixed;inset:0;z-index:10;display:grid;place-items:center;padding:24px;background:#080c1640;cursor:pointer}#shape-notice[hidden]{display:none}#shape-notice p{margin:0;max-width:580px;padding:28px 32px;border:1px solid #ffbd6370;border-radius:20px;background:#101723f5;box-shadow:0 12px 50px #0008;color:#fff7eb;font-size:20px;font-weight:500;line-height:1.7;text-align:center;pointer-events:none}@media(max-width:600px){#shape-notice p{padding:22px;font-size:17px}}
+</style>
+<video id="camera" autoplay playsinline muted></video><canvas id="scene"></canvas>
+<header><small>PORTAL LAB / EXPERIMENT 01</small><h1>원을 그려, 극한의 휴양지로.</h1><p>마우스를 누른 채 원을 그리고 놓아보세요.<br>좌우로 움직여 배경을 채운 뒤 원을 그려보세요.</p></header>
+<div id="shape-notice" role="status" aria-live="polite" hidden><p>원을 그려야지만 휴양지로 이동할 수 있어요. 조금 더 둥글게 그려주세요.</p></div>
+<div id="hint">MOUSE INPUT · WEBCAM BACKGROUND</div>
+<details id="credits"><summary>배경 사진 출처</summary><p><a href="https://commons.wikimedia.org/wiki/File:Erg_Chebbi_(4804565176).jpg" target="_blank" rel="noopener">사막 · Mike Prince</a> / <a href="https://creativecommons.org/licenses/by/2.0/" target="_blank" rel="noopener">CC BY 2.0</a><br><a href="https://commons.wikimedia.org/wiki/File:Machu_Picchu,_Peru-21Sept2013.jpg" target="_blank" rel="noopener">마추픽추 · pululante</a> / <a href="https://creativecommons.org/licenses/by/2.0/" target="_blank" rel="noopener">CC BY 2.0</a><br><a href="https://commons.wikimedia.org/wiki/File:Ilulissat_Icefjord.jpg" target="_blank" rel="noopener">북극 · Quintin Soloviev</a> / <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a><br>원형 화면에 맞춰 사진을 자르고 명암을 조정했습니다.</p></details>
+<footer><button id="start">웹캠 켜기</button><button id="reset">포털 지우기</button><span id="status" role="status" aria-live="polite">웹캠을 켜고 좌우로 천천히 움직여 배경을 채워 주세요.</span></footer>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1675465747/selfie_segmentation.js" crossorigin="anonymous"></script>
+<script>
+// 카메라 영상은 메모리에서만 처리하며 녹화·업로드하지 않습니다.
+const canvas=document.querySelector('#scene'),ctx=canvas.getContext('2d'),video=document.querySelector('#camera'),status=document.querySelector('#status');
+let w,h,points=[],drawing=false,portal=null,activePointer=null,stream,cleanBackground=null,captureTimer=null;
+let outsideBlend=0,lastRenderTime=null;
+function resize(){w=innerWidth;h=innerHeight;const d=Math.min(devicePixelRatio,2);canvas.width=w*d;canvas.height=h*d;ctx.setTransform(d,0,0,d,0,0);portal=null;points=[];drawing=false;activePointer=null;}
+addEventListener('resize',resize);resize();
+// Input adapter: future hand landmarks can call beginStroke / moveStroke / endStroke.
+const shapeNotice=document.querySelector('#shape-notice');let shapeNoticeTimer=null;
+function hideShapeNotice(){clearTimeout(shapeNoticeTimer);shapeNoticeTimer=null;shapeNotice.hidden=true;}
+function showShapeNotice(){hideShapeNotice();shapeNotice.hidden=false;shapeNoticeTimer=setTimeout(hideShapeNotice,5000);}
+document.addEventListener('pointerdown',hideShapeNotice,{capture:true});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')hideShapeNotice();});
+function beginStroke(x,y){hideShapeNotice();points=[{x,y}];drawing=true;}
+function moveStroke(x,y){if(drawing&&Math.hypot(x-points.at(-1).x,y-points.at(-1).y)>1)points.push({x,y});}
+function endStroke(){if(!drawing)return;drawing=false;const result=recognizeCircle(points);if(result){hideShapeNotice();const world=Math.floor(Math.random()*portalWorlds.length);portal={...result,world,born:performance.now()};status.textContent=stream?portalWorlds[world].name+' 포털이 열렸어요. 카메라를 보며 움직여 보세요.':portalWorlds[world].name+' 포털이 열렸어요. 웹캠을 켜면 내 모습이 나타나요.';}else{showShapeNotice();status.textContent='원을 그려 포털을 열어보세요.';}points=[];}
+function recognizeCircle(p){
+ if(p.length<6)return null;
+ let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+ for(const q of p){minX=Math.min(minX,q.x);maxX=Math.max(maxX,q.x);minY=Math.min(minY,q.y);maxY=Math.max(maxY,q.y);}
+ const width=maxX-minX,height=maxY-minY,x=(maxX+minX)/2,y=(maxY+minY)/2,r=(width+height)/4;
+ // Use relative tolerances for every size; short or fast strokes need fewer input samples.
+ if(r<4||Math.min(width,height)/Math.max(width,height)<.5||Math.hypot(p[0].x-p.at(-1).x,p[0].y-p.at(-1).y)>r*1.1)return null;
+ // Resample by distance so fast corners and uneven pointer speeds get equal weight.
+ const path=[p[0]],distances=[0];let length=0;
+ for(let i=1;i<p.length;i++){const d=Math.hypot(p[i].x-path.at(-1).x,p[i].y-path.at(-1).y);if(d){length+=d;path.push(p[i]);distances.push(length);}}
+ const closing=Math.hypot(path[0].x-path.at(-1).x,path[0].y-path.at(-1).y);
+ if(closing){length+=closing;path.push(path[0]);distances.push(length);}
+ if(length/r<=4)return null;
+ const samples=[];let segment=1;
+ for(let i=0;i<64;i++){
+  const distance=length*i/64;while(segment<path.length-1&&distances[segment]<distance)segment++;
+  const a=path[segment-1],b=path[segment],f=(distance-distances[segment-1])/(distances[segment]-distances[segment-1]);
+  samples.push({x:a.x+(b.x-a.x)*f,y:a.y+(b.y-a.y)*f});
+ }
+ let error=0,area=0,perimeter=0,turn=0;
+ for(let i=0;i<samples.length;i++){
+  const a=samples[i],b=samples[(i+1)%samples.length];
+  error+=Math.abs(Math.hypot(a.x-x,a.y-y)-r);
+  area+=(a.x-x)*(b.y-y)-(b.x-x)*(a.y-y);perimeter+=Math.hypot(b.x-a.x,b.y-a.y);
+  const angle=Math.atan2(b.y-y,b.x-x)-Math.atan2(a.y-y,a.x-x);turn+=Math.atan2(Math.sin(angle),Math.cos(angle));
+ }
+ // Triangles, stars and other angular outlines enclose less area for their perimeter.
+ const roundness=2*Math.PI*Math.abs(area)/(perimeter*perimeter);
+ return roundness>.84&&error/samples.length/r<.2&&Math.abs(turn)>4.6?{x,y,r}:null;
+}
+canvas.addEventListener('pointerdown',e=>{if(activePointer!==null||e.button!==0)return;activePointer=e.pointerId;canvas.setPointerCapture(e.pointerId);beginStroke(e.clientX,e.clientY);});
+canvas.addEventListener('pointermove',e=>{if(e.pointerId!==activePointer)return;for(const q of e.getCoalescedEvents?.()||[e])moveStroke(q.clientX,q.clientY);moveStroke(e.clientX,e.clientY);});
+canvas.addEventListener('pointerup',e=>{if(e.pointerId!==activePointer)return;moveStroke(e.clientX,e.clientY);endStroke();activePointer=null;});
+canvas.addEventListener('pointercancel',()=>{drawing=false;points=[];activePointer=null;});
+document.querySelector('#reset').onclick=()=>{hideShapeNotice();portal=null;points=[];status.textContent='새로운 원을 그려 포털을 열어보세요.';};
+document.querySelector('#start').onclick=async function(){if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;cleanBackground=null;portal=null;video.srcObject=null;this.textContent='웹캠 켜기';status.textContent='웹캠을 껐어요.';return;}this.disabled=true;try{if(!navigator.mediaDevices?.getUserMedia)throw Error('unsupported');stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false});video.srcObject=stream;await video.play();this.textContent='웹캠 끄기';status.textContent='인물 분리 준비 중…';await prepareSegmentation();}catch(e){stream?.getTracks().forEach(t=>t.stop());stream=null;this.textContent='웹캠 다시 시도';status.textContent=e.name==='NotAllowedError'?'카메라 권한이 필요해요. 브라우저의 카메라 접근을 허용해 주세요.':'카메라 또는 인식 프로그램을 불러오지 못했어요. 인터넷 연결과 카메라를 확인하고 Chrome·Edge에서 다시 열어 주세요.';}finally{this.disabled=false;}};
+// Leave more landscape visible while keeping the portrait centred in every portal size.
+function drawPortalSelf(x,y,r,t){
+  if(!stream||video.readyState<2||!video.videoWidth)return;
+  const size=r*2,source=backgroundReady?person:video;
+  const crop=backgroundReady&&personBounds?personBounds:{x:0,y:0,width:backgroundReady?bw:video.videoWidth,height:backgroundReady?bh:video.videoHeight};
+  const scale=backgroundReady?Math.max(size*.78/crop.width,size*.98/crop.height):Math.max(size/crop.width,size/crop.height);
+  const vw=crop.width*scale,vh=crop.height*scale;
+  ctx.save();
+  ctx.translate(x,y);ctx.scale(-1,1);
+  ctx.globalAlpha=1;ctx.filter='saturate(1.04) contrast(1.03)';
+  // Keep the top of the head visible and let the shoulders extend past the lower rim.
+  ctx.drawImage(source,crop.x,crop.y,crop.width,crop.height,-vw/2,backgroundReady?-r*.8:-vh/2,vw,vh);
+  ctx.restore();
+}
+
+const background=document.createElement('canvas'),person=document.createElement('canvas'),sample=document.createElement('canvas'),mask=document.createElement('canvas');
+const bw=480;let bh=360;
+for(const c of [background,person,sample,mask]){c.width=bw;c.height=bh;}
+const bc=background.getContext('2d'),pc=person.getContext('2d'),sc=sample.getContext('2d',{willReadFrequently:true}),mc=mask.getContext('2d',{willReadFrequently:true});
+let backgroundReady=false,segmenter=null,processing=false,personBounds=null;
+let known,stable,roomPixels,filledPixels,displayPixels,foregroundIntegral,knownCount=0,backgroundTick=0;
+function resetBackground(){
+ // Match the camera aspect ratio so switching from video to the clean plate never stretches the room.
+ bh=Math.max(1,Math.round(bw*video.videoHeight/video.videoWidth));
+ for(const c of [background,person,sample,mask]){c.width=bw;c.height=bh;}
+ known=new Uint8Array(bw*bh);stable=new Uint8Array(bw*bh);
+ roomPixels=new Float32Array(bw*bh*3);filledPixels=null;displayPixels=null;
+ foregroundIntegral=new Uint32Array((bw+1)*(bh+1));knownCount=0;backgroundTick=0;backgroundReady=false;personBounds=null;
+}
+// Push reliable room pixels down a weighted image pyramid, then interpolate back up.
+// Missing areas use surrounding room colours in both directions, never pixels from the live person.
+function fillMissingBackground(){
+ const levels=[{w:bw,h:bh,colours:roomPixels,weights:Float32Array.from(known)}];
+ while(levels.at(-1).w>1||levels.at(-1).h>1){
+  const prev=levels.at(-1),nw=Math.ceil(prev.w/2),nh=Math.ceil(prev.h/2);
+  const next={w:nw,h:nh,colours:new Float32Array(nw*nh*3),weights:new Float32Array(nw*nh)};
+  for(let y=0;y<nh;y++)for(let x=0;x<nw;x++){
+   const i=y*nw+x;let count=0;
+   for(let dy=0;dy<2;dy++)for(let dx=0;dx<2;dx++){
+    const sx=x*2+dx,sy=y*2+dy;if(sx>=prev.w||sy>=prev.h)continue;
+    const j=sy*prev.w+sx;count++;next.weights[i]+=prev.weights[j];
+    for(let c=0;c<3;c++)next.colours[i*3+c]+=prev.colours[j*3+c];
+   }
+   next.weights[i]/=count;for(let c=0;c<3;c++)next.colours[i*3+c]/=count;
+  }
+  levels.push(next);
+ }
+ let coarse=null;
+ for(let l=levels.length-1;l>=0;l--){
+  const level=levels[l],pixels=new Float32Array(level.w*level.h*3);
+  for(let y=0;y<level.h;y++)for(let x=0;x<level.w;x++){
+   const i=y*level.w+x,weight=level.weights[i];
+   let x0=0,y0=0,x1=0,y1=0,fx=0,fy=0;
+   if(coarse){
+    const px=Math.max(0,Math.min(coarse.w-1,(x+.5)/2-.5)),py=Math.max(0,Math.min(coarse.h-1,(y+.5)/2-.5));
+    x0=Math.floor(px);y0=Math.floor(py);x1=Math.min(x0+1,coarse.w-1);y1=Math.min(y0+1,coarse.h-1);fx=px-x0;fy=py-y0;
+   }
+   for(let c=0;c<3;c++){
+    let surrounding=0;
+    if(coarse){const p=coarse.pixels;surrounding=(p[(y0*coarse.w+x0)*3+c]*(1-fx)+p[(y0*coarse.w+x1)*3+c]*fx)*(1-fy)+(p[(y1*coarse.w+x0)*3+c]*(1-fx)+p[(y1*coarse.w+x1)*3+c]*fx)*fy;}
+    pixels[i*3+c]=coarse?level.colours[i*3+c]+surrounding*(1-weight):weight?level.colours[i*3+c]/weight:0;
+   }
+  }
+  coarse={w:level.w,h:level.h,pixels};
+ }
+ return coarse.pixels;
+}
+function drawCover(source){const scale=Math.max(w/source.width,h/source.height);ctx.save();ctx.translate(w,0);ctx.scale(-1,1);ctx.drawImage(source,(w-source.width*scale)/2,(h-source.height*scale)/2,source.width*scale,source.height*scale);ctx.restore();}
+async function prepareSegmentation(){
+ if(typeof SelfieSegmentation==='undefined')throw Error('model load');
+ if(!segmenter){segmenter=new SelfieSegmentation({locateFile:file=>'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1675465747/'+file});segmenter.setOptions({modelSelection:1});segmenter.onResults(updateBackground);}
+ resetBackground();
+ if(!processing)processCamera();
+}
+async function processCamera(){
+ if(!stream){processing=false;return;}processing=true;
+ try{await segmenter.send({image:video});}catch(e){status.textContent='인물 분리를 불러오지 못했어요. 인터넷 연결 후 웹캠을 다시 켜 주세요.';processing=false;return;}
+ setTimeout(processCamera,45);
+}
+function updateBackground(results){
+ if(!stream)return;
+ sc.drawImage(results.image,0,0,bw,bh);mc.clearRect(0,0,bw,bh);mc.drawImage(results.segmentationMask,0,0,bw,bh);
+ const frame=sc.getImageData(0,0,bw,bh),m=mc.getImageData(0,0,bw,bh),stride=bw+1;
+ // Expand uncertain person edges before learning the room, including hair and motion blur.
+ foregroundIntegral.fill(0);let minX=bw,minY=bh,maxX=-1,maxY=-1;
+ for(let y=0;y<bh;y++){let row=0;for(let x=0;x<bw;x++){
+  const confidence=m.data[(y*bw+x)*4];row+=confidence>12?1:0;
+  foregroundIntegral[(y+1)*stride+x+1]=foregroundIntegral[y*stride+x+1]+row;
+  if(confidence>127){minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y);}
+ }}
+ if(maxX>=minX&&maxY>=minY){
+  const padding=6,x0=Math.max(0,minX-padding),y0=Math.max(0,minY-padding);
+  personBounds={x:x0,y:y0,width:Math.min(bw,maxX+padding+1)-x0,height:Math.min(bh,maxY+padding+1)-y0};
+ }else personBounds=null;
+ let learned=false;const margin=8;
+ for(let y=0;y<bh;y++)for(let x=0;x<bw;x++){
+  const i=y*bw+x,x0=Math.max(0,x-margin),x1=Math.min(bw,x+margin+1),y0=Math.max(0,y-margin),y1=Math.min(bh,y+margin+1);
+  const occupied=foregroundIntegral[y1*stride+x1]-foregroundIntegral[y0*stride+x1]-foregroundIntegral[y1*stride+x0]+foregroundIntegral[y0*stride+x0];
+  if(occupied){stable[i]=0;continue;}
+  // A single bad mask must not burn a person's silhouette into the stored background.
+  stable[i]=Math.min(6,stable[i]+1);if(stable[i]<6)continue;
+  const fresh=!known[i],rate=fresh?1:.06;
+  for(let c=0;c<3;c++)roomPixels[i*3+c]+=(frame.data[i*4+c]-roomPixels[i*3+c])*rate;
+  if(fresh){known[i]=1;knownCount++;}learned=true;
+ }
+ backgroundTick++;
+ if(knownCount&&(!filledPixels||(learned&&backgroundTick%4===0)))filledPixels=fillMissingBackground();
+ if(filledPixels){
+  const out=bc.createImageData(bw,bh);
+  if(!displayPixels)displayPixels=filledPixels.slice();
+  for(let i=0;i<known.length;i++){
+   for(let c=0;c<3;c++){const j=i*3+c;displayPixels[j]+=(filledPixels[j]-displayPixels[j])*.14;out.data[i*4+c]=displayPixels[j];}
+   out.data[i*4+3]=255;
+  }
+  bc.putImageData(out,0,0);
+  if(!backgroundReady)status.textContent='준비 완료! 좌우로 천천히 움직여 배경을 채운 뒤 원을 그려 주세요.';
+  backgroundReady=true;
+ }
+ pc.clearRect(0,0,bw,bh);pc.globalCompositeOperation='source-over';pc.filter='blur(1px)';pc.drawImage(results.segmentationMask,0,0,bw,bh);pc.filter='none';pc.globalCompositeOperation='source-in';pc.drawImage(results.image,0,0,bw,bh);pc.globalCompositeOperation='source-over';
+}
+
+const portalWorlds=[
+ {id:'desert',name:'사막',sky:['#5382a4','#f4c98a'],src:'https://upload.wikimedia.org/wikipedia/commons/9/98/Erg_Chebbi_%284804565176%29.jpg'},
+ {id:'machu',name:'마추픽추',sky:['#6fabbc','#dce6c9'],src:'https://upload.wikimedia.org/wikipedia/commons/4/4c/Machu_Picchu%2C_Peru-21Sept2013.jpg'},
+ {id:'arctic',name:'북극',sky:['#4c8ea8','#d4eef0'],src:'https://upload.wikimedia.org/wikipedia/commons/6/69/Ilulissat_Icefjord.jpg'}
+];
+// Keep a painted landscape available while each photograph loads or if the network is offline.
+function paintWorldFallback(world,surface){
+ const c=surface.getContext('2d');c.save();c.scale(surface.width/1000,surface.height/1000);
+ const sky=c.createLinearGradient(0,0,0,800);sky.addColorStop(0,world.sky[0]);sky.addColorStop(1,world.sky[1]);c.fillStyle=sky;c.fillRect(0,0,1000,1000);
+ if(world.id==='desert'){
+  const sun=c.createRadialGradient(750,240,12,750,240,180);sun.addColorStop(0,'#fff3c8');sun.addColorStop(.15,'#ffdc96');sun.addColorStop(1,'#ffdc9600');c.fillStyle=sun;c.fillRect(550,40,400,400);
+  for(let i=0;i<5;i++){
+   const dune=c.createLinearGradient(0,420+i*100,0,1000);dune.addColorStop(0,['#dfb27c','#e9b16e','#d28a47','#e3a157','#be743b'][i]);dune.addColorStop(1,'#814d35');
+   c.fillStyle=dune;c.beginPath();c.moveTo(-100,590+i*100);c.bezierCurveTo(170,340+i*130,430,730+i*30,710,470+i*110);c.bezierCurveTo(900,350+i*120,1100,500+i*100,1100,650+i*100);c.lineTo(1100,1100);c.lineTo(-100,1100);c.closePath();c.fill();
+  }
+ }else if(world.id==='machu'){
+  for(let i=0;i<3;i++){
+   c.fillStyle=['#809f95','#4f7e6d','#2c6553'][i];c.beginPath();c.moveTo(-100,800);
+   c.bezierCurveTo(120,460-i*40,180,280+i*60,300,450+i*65);c.bezierCurveTo(480,650,550,70+i*100,650,180+i*60);c.bezierCurveTo(740,250+i*70,730,580,1100,660+i*80);c.lineTo(1100,1100);c.lineTo(-100,1100);c.closePath();c.fill();
+  }
+  // Terraced stonework and green courtyards make the Inca landscape recognisable.
+  for(let i=0;i<9;i++){
+   const y=650+i*38,left=90-i*19,right=680+i*42;
+   c.fillStyle=i%2?'#8fa16a':'#9bab70';c.beginPath();c.moveTo(left,y);c.lineTo(right,y-45);c.lineTo(right+30,y-16);c.lineTo(left-20,y+28);c.closePath();c.fill();
+   c.fillStyle='#67715b';c.beginPath();c.moveTo(left-20,y+28);c.lineTo(right+30,y-16);c.lineTo(right+30,y-5);c.lineTo(left-20,y+39);c.closePath();c.fill();
+  }
+  for(let i=0;i<20;i++){
+   const x=80+(i%5)*155,y=710+Math.floor(i/5)*60;
+   c.fillStyle='#c0baa0';c.fillRect(x,y,84,26);c.fillStyle='#535d4c';c.fillRect(x+10,y+5,62,16);
+  }
+ }else{
+  const sea=c.createLinearGradient(0,510,0,1000);sea.addColorStop(0,'#74b2c6');sea.addColorStop(1,'#123f65');c.fillStyle=sea;c.fillRect(0,510,1000,490);
+  for(let i=0;i<7;i++){
+   const x=i*175-100,y=450+Math.sin(i*2)*40;c.fillStyle=i%2?'#d8eef2':'#b9dce8';c.beginPath();c.moveTo(x-130,y+70);c.lineTo(x-30,y-90);c.lineTo(x+20,y-140);c.lineTo(x+120,y+50);c.closePath();c.fill();
+  }
+  for(let i=0;i<18;i++){
+   const x=(i*293)%1100-50,y=600+(i*137)%430,size=30+(i*23)%90;
+   c.fillStyle='#edf8f7';c.beginPath();c.moveTo(x-size,y);c.lineTo(x-size*.3,y-size*.6);c.lineTo(x+size*.45,y-size*.85);c.lineTo(x+size,y+size*.15);c.lineTo(x+size*.1,y+size*.35);c.closePath();c.fill();
+   c.fillStyle='#7dbdd2';c.beginPath();c.moveTo(x-size,y);c.lineTo(x+size*.1,y+size*.35);c.lineTo(x+size,y+size*.15);c.lineTo(x+size*.6,y+size*.5);c.lineTo(x-size*.6,y+size*.3);c.closePath();c.fill();
+  }
+ }
+ c.restore();
+}
+for(const world of portalWorlds){
+ world.fallback=document.createElement('canvas');world.fallback.width=world.fallback.height=960;paintWorldFallback(world,world.fallback);
+ world.image=new Image();world.image.decoding='async';
+ world.image.onload=()=>{
+  world.photo=document.createElement('canvas');world.photo.width=world.photo.height=960;
+  const side=Math.min(world.image.naturalWidth,world.image.naturalHeight);
+  world.photo.getContext('2d').drawImage(world.image,(world.image.naturalWidth-side)/2,(world.image.naturalHeight-side)/2,side,side,0,0,960,960);
+  world.loadedAt=performance.now();
+ };
+ world.image.src=world.src;
+}
+function drawPortalWorld(world,x,y,r,t){
+ ctx.save();ctx.filter='none';ctx.globalAlpha=1;
+ ctx.drawImage(world.fallback,x-r,y-r,r*2,r*2);
+ if(world.photo){ctx.globalAlpha=Math.min(1,Math.max(0,(t-world.loadedAt)/700));ctx.drawImage(world.photo,x-r,y-r,r*2,r*2);ctx.globalAlpha=1;}
+ const shade=ctx.createLinearGradient(x,y-r,x,y+r);shade.addColorStop(0,'rgba(0,0,0,.02)');shade.addColorStop(1,'rgba(0,0,0,.17)');ctx.fillStyle=shade;ctx.fillRect(x-r,y-r,r*2,r*2);
+ if(world.id==='arctic'){
+  ctx.fillStyle='rgba(240,253,255,.45)';for(let i=0;i<20;i++){const px=x+Math.sin(i*37)*r,py=y-r+((t*.000045+i*.137)%1)*r*2;ctx.beginPath();ctx.arc(px,py,Math.max(.5,r*.004),0,Math.PI*2);ctx.fill();}
+ }
+ ctx.restore();
+}
+function updateOutsideDissolve(t){
+ const dt=lastRenderTime===null?16:Math.max(0,Math.min(64,t-lastRenderTime));lastRenderTime=t;
+ const target=portal&&stream&&backgroundReady?1:0;
+ outsideBlend=stream?outsideBlend+(target-outsideBlend)*(1-Math.exp(-dt/(target?350:230))):0;
+ if(Math.abs(outsideBlend-target)<.001)outsideBlend=target;
+ // CSS affects the original camera only; the person drawn on the canvas stays in colour.
+ video.style.filter=`grayscale(${outsideBlend})`;
+ if(stream&&backgroundReady&&outsideBlend>0){
+  ctx.save();ctx.globalAlpha=outsideBlend;ctx.filter='grayscale(1)';drawCover(background);ctx.restore();
+ }
+}
+
+// Two quick contractions and rebounds, followed by a soft landing at the drawn radius.
+const openingKeys=[[0,0],[110,1],[210,.68],[310,1.08],[410,.76],[510,1.04],[650,1]];
+function portalOpeningScale(elapsed){
+ if(elapsed<=0)return 0;if(elapsed>=650)return 1;
+ for(let i=1;i<openingKeys.length;i++){
+  const [end,to]=openingKeys[i],[start,from]=openingKeys[i-1];
+  if(elapsed<=end){const p=(elapsed-start)/(end-start),ease=p*p*(3-2*p);return from+(to-from)*ease;}
+ }
+}
+function drawPortalFire(x,y,r,t,opacity){
+ if(r<=.05||opacity<=0)return;
+ const flameHeight=Math.min(30,r*.22+2),count=Math.max(18,Math.min(110,Math.round(r*.65)));
+ ctx.save();ctx.globalAlpha=opacity;ctx.globalCompositeOperation='source-over';
+ // A warm halo joins the individual tongues into a continuous burning rim.
+ const fire=ctx.createRadialGradient(x,y,Math.max(0,r-3),x,y,r+flameHeight*1.4);
+ fire.addColorStop(0,'rgba(255,229,150,.95)');fire.addColorStop(.16,'rgba(255,155,34,.9)');
+ fire.addColorStop(.55,'rgba(255,72,5,.62)');fire.addColorStop(1,'rgba(255,45,0,0)');
+ ctx.shadowColor='#ff6500';ctx.shadowBlur=Math.min(25,r*.25+5);
+ ctx.fillStyle=fire;
+ for(let i=0;i<count;i++){
+  const a=i*Math.PI*2/count,half=Math.PI/count*.8;
+  const flicker=.58+.22*Math.sin(t*.012+i*2.37)+.2*Math.sin(t*.019-i*1.13);
+  const length=flameHeight*(.35+flicker),curl=Math.sin(t*.006+i*2.1)*.09;
+  const tipX=x+Math.cos(a+curl)*(r+length),tipY=y+Math.sin(a+curl)*(r+length)-length*.25;
+  ctx.beginPath();ctx.moveTo(x+Math.cos(a-half)*(r-.5),y+Math.sin(a-half)*(r-.5));
+  ctx.quadraticCurveTo(x+Math.cos(a-half*.5)*(r+length*.65),y+Math.sin(a-half*.5)*(r+length*.65),tipX,tipY);
+  ctx.quadraticCurveTo(x+Math.cos(a+half)*(r+length*.3),y+Math.sin(a+half)*(r+length*.3),x+Math.cos(a+half)*(r-.5),y+Math.sin(a+half)*(r-.5));
+  ctx.closePath();ctx.fill();
+ }
+ ctx.shadowBlur=Math.min(20,r*.2+4);ctx.strokeStyle='#ff790f';ctx.lineWidth=Math.min(4,Math.max(.8,r*.045));
+ ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.stroke();
+ ctx.shadowBlur=6;ctx.strokeStyle='#ffe2a0';ctx.lineWidth=Math.min(1.4,Math.max(.4,r*.014));ctx.stroke();
+ // Embers drift away from the rim, fade out, and rise slightly like real sparks.
+ ctx.shadowBlur=5;
+ for(let i=0;i<Math.min(42,Math.round(count*.45));i++){
+  const life=(t*.0008+i*.61803398875)%1,a=i*2.39996+t*.00012,rr=r+life*flameHeight*2.4;
+  ctx.globalAlpha=opacity*(1-life)*(1-life);ctx.fillStyle=i%3?'#ff8c24':'#ffe6b1';
+  ctx.beginPath();ctx.arc(x+Math.cos(a)*rr,y+Math.sin(a)*rr-life*life*flameHeight,.35+(1-life)*Math.min(1.2,r*.03),0,Math.PI*2);ctx.fill();
+ }
+ ctx.restore();
+}
+function frame(t){
+ ctx.clearRect(0,0,w,h);
+ if(!stream){
+  const bg=ctx.createRadialGradient(w*.5,h*.5,0,w*.5,h*.5,w*.7);
+  bg.addColorStop(0,'#192c43');bg.addColorStop(1,'#080c16');ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
+ }
+ updateOutsideDissolve(t);
+ if(portal){
+  const{x,y,r,born}=portal,elapsed=Math.max(0,t-born),R=r*portalOpeningScale(elapsed),opacity=Math.min(1,elapsed/110);
+  if(R>.05){
+   ctx.save();ctx.beginPath();ctx.arc(x,y,R,0,Math.PI*2);ctx.clip();
+   drawPortalWorld(portalWorlds[portal.world??0],x,y,R,t);
+   // The camera image follows the same bounce, so small portals never crop it mid-animation.
+   drawPortalSelf(x,y,R,t);ctx.restore();drawPortalFire(x,y,R,t,opacity);
+  }
+ }
+ if(points.length){
+  ctx.save();ctx.strokeStyle='#ffbd63';ctx.lineWidth=3;ctx.lineCap='round';ctx.shadowColor='#ff6500';ctx.shadowBlur=14;
+  ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();ctx.restore();
+ }
+ requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+</script>
+</html>

@@ -1,0 +1,19 @@
+# Local agent settings and browser verification files
+/.codex/
+/.portal-qa/
+
+# Local graphics driver logs
+/NVIDIA Corporation/
+
+# Reference course material, separate from project source
+/수업자료/
+
+# Temporary files and credentials
+__pycache__/
+*.pyc
+*.log
+.env
+.env.*
+!.env.example
+Thumbs.db
+Desktop.ini
