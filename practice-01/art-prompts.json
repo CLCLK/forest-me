@@ -1,0 +1,17 @@
+{
+  "generator": "Built-in image_gen",
+  "styleReferences": [
+    "../timburton1.jpg",
+    "../timburton2.jpg"
+  ],
+  "assets": {
+    "forest-moonlit.png": {
+      "transparent": false,
+      "prompt": "Create an original wide 16:9 atmospheric fantasy forest landscape for an interactive website. Moonlit deep indigo blue forest with very tall slender trees, curled and twisted sculptural branches, delicate lace-like bare twigs, velvety black foliage framing a winding path into a misty central clearing. A luminous pale blue full moon behind a thin veil of mist. A whimsical gothic storybook mood, expressive elongated shapes, handmade stop-motion miniature set materials, carved and painted bark, rich tactile details, soft blue and muted lavender cinematic lighting. Beautiful mysterious woodland with layered depth and an uncluttered clearing, dark foreground roots and ferns. Environment only. No people, no lettering or graphic design."
+    },
+    "fairy.png": {
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Asset type: one isolated full-body fairy sprite with REAL transparent background for a website cursor follower. The two input images are STYLE REFERENCES ONLY, not edit targets. Create ONE ORIGINAL small gothic storybook fairy in a whimsical handcrafted stop-motion puppet aesthetic matching the references' carved clay textures, slender elongated proportions and large expressive eyes. Full body front-facing slight three-quarter angle, gracefully hovering, arms softly extended, feet visible. A pale porcelain gray-blue face, huge soulful eyes with dark pupils, delicate small nose and tiny closed smile, short tousled midnight-black wavy hair. She unmistakably wears a SILVER-LAVENDER FABRIC HEADBAND horizontally around her forehead, a distinct visible band with a tiny central pearl and trailing ribbon on one side. She has TWO large translucent pearlescent insect-like wings attached to her back, fully visible on BOTH sides, fine silver veins and muted lavender-blue sheen, readable silhouette at small screen size. A short layered midnight indigo and slate-lavender fairy dress with delicate lace and asymmetrical petal hem, slender arms and legs, pointed little shoes. Soft cool rim lighting, tactile handmade puppet finish, charming and mysterious, not scary. Keep entire character including both complete wings, hair ribbon and feet inside image with generous transparent margin. Composition portrait, wings spread gently upward. No background scenery, NO floor, NO cast shadow, NO opaque aura, NO text, NO logos, NO movie characters, NO skull face, NO bridal gown. Actual alpha transparency, not a drawn checkerboard."
+    }
+  }
+}
