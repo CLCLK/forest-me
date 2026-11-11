@@ -11,39 +11,56 @@
   <script src="webcam.js" defer></script>
   <script src="script.js" defer></script>
 </head>
-<body>
-  <main class="forest" id="forest" data-state="resting" aria-labelledby="title">
+<body data-view="intro">
+  <main class="forest" id="forest" data-state="resting" data-background="moonlit" aria-labelledby="title" tabindex="-1">
     <p class="sr-only">마우스를 움직이면 숲이 밝아지고 날개와 머리띠가 있는 요정이 따라옵니다. 작은 흰 별빛과 반짝이가 흩날립니다. 2초 동안 움직이지 않으면 다시 어두워집니다.</p>
     <div class="landscape" aria-hidden="true"></div>
     <div class="moonlight" aria-hidden="true"></div>
     <div class="vignette" aria-hidden="true"></div>
-    <div class="fairy" id="fairy" aria-hidden="true">
-      <div class="puppet">
-        <img src="fairy.png" width="1024" height="1536" alt="" draggable="false">
-        <canvas id="face" width="280" height="300" hidden></canvas>
+    <div class="fairy" id="fairy" data-facing="right" aria-hidden="true">
+      <div class="fairy-facing">
+        <div class="puppet">
+          <img src="fairy-storybook-clean.png" width="1024" height="1536" alt="" draggable="false">
+          <canvas id="face" width="280" height="300" hidden></canvas>
+        </div>
       </div>
     </div>
     <canvas id="trails" aria-hidden="true"></canvas>
   </main>
+  <section class="intro-screen" id="intro-screen" aria-labelledby="intro-title">
+    <div class="intro-copy">
+      <div class="intro-ornament" aria-hidden="true">☾</div>
+      <p class="intro-eyebrow">달빛 너머의 작은 세계</p>
+      <h1 class="intro-title" id="intro-title" aria-label="숲속의 나"><span>숲</span><span>속</span><span>의</span> <span>나</span></h1>
+      <p class="intro-description">어둠이 내려앉은 숲,<br>당신의 움직임이 작은 빛을 깨웁니다.</p>
+      <button class="enter-button" id="enter-forest" type="button">숲으로 들어가기 <span aria-hidden="true">→</span></button>
+      <p class="intro-hint">웹캠 없이도 숲에 들어갈 수 있어요.</p>
+    </div>
+    <div class="intro-settings">
   <aside class="control-panel" aria-label="숲과 요정 설정">
+    <p class="intro-settings-title">숲에 들기 전</p>
     <h1 id="title" class="gothic-title" aria-label="숲 속의 나 v2"><span>숲</span> <span>속</span><span>의</span> <span>나</span> <small>v2</small></h1>
     <div class="camera-buttons">
       <button id="camera-on" type="button"><span class="camera-dot" aria-hidden="true"></span>웹캠 켜기</button>
       <button id="camera-off" type="button" disabled>끄기</button>
     </div>
     <p class="camera-status" id="camera-status" role="status">웹캠을 켜면 내 얼굴이 요정에게 들어가요.</p>
-    <div class="file-pickers">
-      <label class="file-picker">
-        <span class="picker-symbol" aria-hidden="true">☾</span>
-        <span><strong>숲 이미지 변경</strong><small id="forest-file-name">기본 달빛 숲</small></span>
-        <span class="picker-action">선택</span>
-        <input id="forest-file" type="file" accept="image/*" aria-label="숲 이미지 파일 선택">
+    <div class="preset-pickers">
+      <label class="preset-picker" for="forest-preset">
+        <span>☾ &nbsp;숲 이미지 변경</span>
+        <select id="forest-preset">
+          <option value="moonlit">1. 어두운 숲</option>
+          <option value="webs">2. 거미줄의 숲</option>
+          <option value="graveyard">3. 공동묘지 숲</option>
+        </select>
       </label>
-      <label class="file-picker">
-        <span class="picker-symbol" aria-hidden="true">✧</span>
-        <span><strong>불빛 이미지 변경</strong><small id="light-file-name">투명 PNG 이미지 권장</small></span>
-        <span class="picker-action">선택</span>
-        <input id="light-file" type="file" accept="image/*" aria-label="불빛 이미지 파일 선택">
+      <label class="preset-picker" for="light-preset">
+        <span>✧ &nbsp;불빛 이미지 변경</span>
+        <select id="light-preset">
+          <option value="sparkle">1. 반짝임</option>
+          <option value="crow">2. 새끼 까마귀</option>
+          <option value="leaf">3. 낙엽</option>
+        </select>
       </label>
     </div>
     <div class="face-zoom-row">
@@ -58,8 +75,10 @@
       </div>
     </div>
     <p id="asset-status" class="asset-status" role="status">마우스를 움직여 요정과 숲을 깨워보세요.</p>
-    <p class="privacy-note">웹캠·선택 이미지는 기기에서만 사용해요.</p>
+    <p class="privacy-note">웹캠 영상은 기기에서만 사용해요.</p>
   </aside>
+    </div>
+  </section>
   <video id="camera-video" autoplay muted playsinline hidden></video>
 </body>
 </html>

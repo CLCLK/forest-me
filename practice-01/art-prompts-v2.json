@@ -1,0 +1,25 @@
+{
+  "generator": "Built-in image_gen",
+  "date": "2026-11-11",
+  "finalFairy": { "file": "fairy-storybook-clean.png", "source": "fairy-storybook.png", "prompt": "Background extraction edit ONLY. Keep the fairy illustration exactly identical, every pixel of the character design, wings, pose, face location, framing and size unchanged. Remove ALL of the surrounding painted gray/lavender/white atmospheric haze, cloudy backdrop, rectangular background and glow. The output must be a clean isolated fairy cutout PNG with true alpha transparency: every pixel outside the actual fairy, hair, dress and wings must be fully transparent (alpha zero), including the upper corners and spaces between arms and torso. Do not leave a gray translucent rectangle behind the fairy. Preserve the delicate transparent wing membrane, full wings and fine hair silhouette. No other changes. This sprite will be composited directly over a very dark forest so any residual backdrop will show as an unwanted rectangle." },
+  "assets": [
+    {
+      "file": "fairy-storybook.png",
+      "source": "fairy.png",
+      "transparent": true,
+      "prompt": "Edit this fairy sprite. Change ONLY the rendering style to a gentle, friendly, softly hand-painted 2D children's storybook illustration. Preserve the identical full-body pose, body proportions, face center position, head size, exact silhouette and image framing, both complete butterfly wings, midnight indigo and lavender lace petal dress, short black wavy hair, pearl lavender forehead headband and trailing ribbon, shoes, and cool lavender color scheme. Replace realistic clay doll skin and photographic fabric texture with smooth watercolor and gouache brushwork, soft colored pencil contours and simplified pretty details. Gentle friendly expression and soft eyes, no eerie realism. Keep the face in the same location as input, angled identically, because a webcam face is composited over it. Entire character in frame. Transparent background with a clean alpha cutout; no opaque haze or backdrop. No added objects or text."
+    },
+    {
+      "file": "forest-webs.png",
+      "source": "forest-moonlit.png",
+      "transparent": false,
+      "prompt": "Edit this 16:9 moonlit forest background into a second selectable scene. Keep the same twisted forest framing, winding central path, moon and atmospheric blue-purple style. Make this forest noticeably more dim, dusky and misty, with MANY delicate silver-gray cobwebs stretched across the branches and between the trunks, dense layered webs at the sides and overhead, a few fine dew glints along the silk. Maintain depth, beautiful intricate haunted storybook woodland scenery. The moon is partly obscured by thicker clouds and the clearing is more shadowed. No characters or typography; no close-up spiders. Entire image is finished landscape, no border."
+    },
+    {
+      "file": "forest-graveyard.png",
+      "source": "forest-moonlit.png",
+      "transparent": false,
+      "prompt": "Edit this 16:9 moonlit forest background into a third selectable scene: a quiet old forest cemetery. Preserve the atmospheric twisted trees, winding path and blue-purple moonlight. Add MANY old small weathered gravestones and rounded headstones in clusters across the forest floor on both sides of the path, with some tilted moss-covered stone markers fading deep into mist between tree trunks. A beautifully composed mysterious gothic storybook woodland cemetery, soft lavender-blue fog, dark roots, moon visible through canopy. Only landscape and stone grave markers, no people, no creatures, no bodies, no gore, no lettering or typography. Finished wide landscape without borders."
+    }
+  ]
+}

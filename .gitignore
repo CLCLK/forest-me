@@ -1,6 +1,7 @@
 # Local agent settings and browser verification files
 /.codex/
 /.portal-qa/
+/.publish/
 
 # Local graphics driver logs
 /NVIDIA Corporation/

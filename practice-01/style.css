@@ -1,6 +1,7 @@
 :root {
   color-scheme: dark;
   background: #02090b;
+  --moonlit-forest: url("forest-moonlit.png");
 }
 
 * { box-sizing: border-box; }
@@ -20,7 +21,10 @@ html, body {
   overflow: hidden;
   background: #02090b;
   touch-action: none;
+  transition: opacity .8s ease;
 }
+
+body[data-view="intro"] .forest { opacity: 0; visibility: hidden; }
 
 .landscape, .moonlight, .vignette, #trails {
   position: absolute;
@@ -29,7 +33,7 @@ html, body {
 }
 
 .landscape {
-  background: #0a1429 url("forest-moonlit.png") center / cover no-repeat;
+  background: #0a1429 var(--moonlit-forest) center / cover no-repeat;
   filter: brightness(.38) saturate(.8);
   transition: filter 1.8s ease-in-out;
 }
@@ -37,6 +41,9 @@ html, body {
 .forest[data-state="awake"] .landscape {
   filter: brightness(1.08) saturate(1.05);
 }
+
+.forest[data-background="webs"] .landscape { background-image: url("forest-webs.png"); }
+.forest[data-background="graveyard"] .landscape { background-image: url("forest-graveyard.png"); }
 
 .moonlight {
   background: radial-gradient(ellipse at 53% 34%, #b5eee60c, transparent 55%);
@@ -60,7 +67,7 @@ html, body {
   position: absolute;
   top: 0;
   left: 0;
-  width: clamp(180px, 20vw, 260px);
+  width: clamp(144px, 16vw, 208px);
   aspect-ratio: 2 / 3;
   pointer-events: none;
   will-change: transform;
@@ -82,6 +89,9 @@ html, body {
   height: 100%;
   animation: hover 3s ease-in-out infinite;
 }
+
+.fairy-facing { width: 100%; height: 100%; }
+.fairy[data-facing="left"] .fairy-facing { transform: scaleX(-1); }
 
 .fairy img {
   display: block;
@@ -151,24 +161,19 @@ html, body {
 .camera-buttons button:disabled { opacity: .32; cursor: default; }
 .camera-dot { display: inline-block; width: 6px; height: 6px; margin-right: 8px; border-radius: 50%; background: #c7b9ff; }
 .camera-status { min-height: 35px; margin: 10px 0 13px; color: #b0aec8; font-size: 11px; }
-.file-pickers { display: grid; gap: 8px; }
-.file-picker {
-  position: relative;
-  display: grid;
-  grid-template-columns: 22px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-  padding: 10px;
-  border: 1px solid #b5b4e123;
+.preset-pickers { display: grid; gap: 12px; }
+.preset-picker { display: grid; gap: 6px; color: #c5c0df; }
+.preset-picker select {
+  width: 100%;
+  padding: 9px 8px;
+  border: 1px solid #b5b4e138;
   border-radius: 4px;
+  background: #14182b;
+  color: #ece9fa;
+  font: inherit;
   cursor: pointer;
 }
-.file-picker:hover { background: #c7b9ff0d; border-color: #b5b4e150; }
-.picker-symbol { color: #c1b9eb; font: 25px/1 Georgia, serif; }
-.file-picker strong { display: block; font-size: 12px; font-weight: 500; }
-.file-picker small { display: block; margin-top: 2px; overflow: hidden; color: #85849e; font-size: 10px; white-space: nowrap; text-overflow: ellipsis; }
-.picker-action { color: #a4a0c3; font-size: 10px; }
-.file-picker input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.preset-picker select:hover { border-color: #b5b4e180; }
 .face-zoom-row { display: flex; align-items: center; gap: 12px; margin-top: 16px; }
 .face-preview-wrap { position: relative; flex: 0 0 56px; width: 56px; height: 64px; overflow: hidden; border-radius: 50%; border: 1px solid #c8bcf585; background: #080c19; }
 #face-preview { display: block; width: 100%; height: 100%; }
@@ -181,14 +186,76 @@ html, body {
 .zoom-limits { display: flex; justify-content: space-between; color: #77768e; font-size: 10px; }
 .asset-status { min-height: 15px; margin: 16px 0 5px; color: #b5b0d4; font-size: 10px; }
 .privacy-note { margin: 0; color: #77768e; font-size: 10px; }
-button:focus-visible, input:focus-visible { outline: 2px solid #dbd0ff; outline-offset: 3px; }
-.file-picker:focus-within { outline: 2px solid #dbd0ff; outline-offset: 2px; }
+.intro-settings-title { display: none; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid #dbd0ff; outline-offset: 3px; }
+
+.intro-screen {
+  position: fixed;
+  z-index: 8;
+  inset: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 344px;
+  align-items: center;
+  gap: clamp(32px, 6vw, 96px);
+  padding: 48px clamp(32px, 8vw, 128px);
+  overflow-y: auto;
+  isolation: isolate;
+  background: #03060d;
+  color: #dfdced;
+}
+.intro-screen[hidden] { display: none; }
+.intro-screen::before {
+  content: "";
+  position: fixed;
+  z-index: -2;
+  inset: -2px;
+  background: #03060d var(--moonlit-forest) center / cover no-repeat;
+  filter: brightness(.29) saturate(.3) contrast(1.2) blur(1px);
+}
+.intro-screen::after {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  background: linear-gradient(90deg, #03050d65, #05081510 65%, #03050d65), radial-gradient(ellipse at 45% 40%, transparent 5%, #02040bc9 95%);
+  pointer-events: none;
+}
+.intro-copy { max-width: 590px; padding-bottom: 12px; }
+.intro-ornament { display: flex; align-items: center; gap: 20px; color: #c4bfdc; font: 43px/1 Georgia, serif; text-shadow: 0 0 30px #bab2fc60; }
+.intro-ornament::before, .intro-ornament::after { content: ""; width: 45px; height: 1px; background: linear-gradient(90deg, transparent, #a79dc95c, transparent); }
+.intro-eyebrow { margin: 24px 0 17px; color: #9690ac; font: 11px/1.8 "Malgun Gothic", sans-serif; letter-spacing: .24em; }
+.intro-title { margin: 0; white-space: nowrap; color: #e5e0f0; font: clamp(58px, 6.8vw, 94px)/1.45 "Gungsuh", "Batang", serif; letter-spacing: -.06em; text-shadow: 2px 4px 3px #000, 0 0 34px #c7b7ff30; }
+.intro-title span { display: inline-block; }
+.intro-title span:nth-child(1) { transform: rotate(-6deg) scaleY(1.12); }
+.intro-title span:nth-child(2) { transform: rotate(4deg) translateY(4px); }
+.intro-title span:nth-child(3) { transform: rotate(-3deg); }
+.intro-title span:nth-child(4) { transform: rotate(5deg) scaleY(1.12); }
+.intro-description { margin: 22px 0 34px; color: #b4aec5; font: 14px/2.1 "Batang", serif; letter-spacing: .03em; }
+.enter-button { display: inline-flex; align-items: center; gap: 46px; padding: 17px 25px; border: 1px solid #a9a0c866; border-radius: 2px 13px 2px 13px; background: linear-gradient(110deg, #61537740, #1c1a3245); box-shadow: 0 0 30px #b1a1f00c, inset 0 1px #ffffff0b; color: #e6dff5; font: 15px/1.4 "Batang", serif; letter-spacing: .08em; cursor: pointer; transition: background .25s, box-shadow .25s; }
+.enter-button:hover { background: #83709e40; box-shadow: 0 0 28px #b1a1f025; }
+.enter-button span { color: #bcb1db; font: 23px/1 Georgia, serif; }
+.intro-hint { margin: 14px 0 0; color: #777185; font: 10px/1.8 "Malgun Gothic", sans-serif; }
+.intro-screen .control-panel { position: relative; inset: auto; width: 100%; padding: 25px; background: linear-gradient(145deg, #101223d9, #0b0d19ce); border-color: #b1a4d530; box-shadow: 0 16px 80px #0007, inset 0 1px #e0ddff09; }
+.intro-screen .gothic-title { display: none; }
+.intro-screen .intro-settings-title { display: block; margin: 0 0 20px; padding-bottom: 16px; border-bottom: 1px solid #a49bb72e; color: #d2c8e4; font: 18px/1.5 "Batang", serif; letter-spacing: .13em; }
+
+@media (max-width: 800px) {
+  .intro-screen { grid-template-columns: minmax(0, 1fr); gap: 34px; align-items: start; padding: 35px 24px; }
+  .intro-copy { max-width: none; text-align: center; }
+  .intro-ornament { justify-content: center; font-size: 33px; }
+  .intro-eyebrow { margin-top: 15px; }
+  .intro-title { font-size: clamp(48px, 10vw, 76px); }
+  .intro-description { margin: 10px 0 22px; font-size: 12px; }
+  .intro-settings { width: min(100%, 344px); margin: 0 auto; }
+}
+@media (max-height: 620px) and (min-width: 801px) {
+  .intro-screen { align-items: start; padding-top: 24px; padding-bottom: 24px; }
+}
 
 @media (max-width: 600px) {
   .control-panel { top: 12px; left: 12px; width: 262px; padding: 16px; }
   .gothic-title { font-size: 29px; margin-bottom: 13px; }
   .camera-status { min-height: 18px; }
-  .file-picker { padding: 7px 9px; }
   .face-zoom-row { margin-top: 12px; }
   .asset-status { margin-top: 10px; }
 }
@@ -215,6 +282,6 @@ button:focus-visible, input:focus-visible { outline: 2px solid #dbd0ff; outline-
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .landscape, .moonlight, .fairy { transition-duration: .4s; }
+  .landscape, .moonlight, .fairy, .forest { transition-duration: .4s; }
   .puppet { animation: none; }
 }

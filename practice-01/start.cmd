@@ -1,5 +1,7 @@
 @echo off
-echo Open http://127.0.0.1:8000/ in your browser.
-echo Keep this window open. Press Ctrl+C to stop.
-python -m http.server 8000 --bind 127.0.0.1 --directory "%~dp0."
-pause
+python "%~dp0preview_server.py" start
+if errorlevel 1 (
+  pause
+  exit /b 1
+)
+start "" "http://127.0.0.1:8000/"
