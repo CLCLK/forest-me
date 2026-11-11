@@ -4,11 +4,18 @@ const forest = document.getElementById("forest");
 const fairy = document.getElementById("fairy");
 const canvas = document.getElementById("trails");
 const context = canvas.getContext("2d");
+const depth = document.getElementById("forest-depth");
+const depthPlanes = [document.getElementById("depth-a"), document.getElementById("depth-b")];
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 const IDLE_DELAY = 2000;
 const LIGHT_LIFETIME = 4200;
 const LIGHT_SPACING = 8;
-const MAX_LIGHTS = 900;
+const MAX_LIGHTS = 1100;
+const SPARK_TONES = ["#ffffff", "#d9eaff", "#e5d1ff", "#fff0cb"];
+const LEAF_TONES = [
+  ["#50545d", "#a3a6ae"], ["#737881", "#c7cad1"], ["#969aa2", "#d7dae1"],
+  ["#b9bcc4", "#eff0f3"], ["#d9dbe0", "#ffffff"],
+];
 let lights = [];
 let previousPoint = null;
 let idleTimer;
@@ -24,6 +31,10 @@ let targetY;
 let fairyWidth;
 let fairyHeight;
 let lightMode = "sparkle";
+let leafTone = 0;
+let travelDistance = 0;
+let travelSpeed = 0;
+let travelPan = 0;
 
 // Reuse one glow texture instead of creating hundreds of gradients per frame.
 const glow = document.createElement("canvas");
@@ -69,27 +80,31 @@ function addLight(x, y, time, star = false) {
   lights.push({
     x, y, born: time, star,
     lifetime: lightMode === "sparkle" ? (star ? LIGHT_LIFETIME : 1800 + Math.random() * 2300) : 3400 + Math.random() * 1300,
-    radius: star ? 1 + Math.random() * 1.2 : .35 + Math.random() * .9,
+    radius: star ? 1.15 + Math.random() * 1.65 : .4 + Math.random() * 1.05,
     vx: (Math.random() - .5) * (lightMode === "sparkle" && star ? 8 : 60),
     vy: lightMode === "leaf" ? 12 + Math.random() * 20 : star ? -4 - Math.random() * 5 : -12 - Math.random() * 42,
-    size: lightMode === "crow" ? 5 + Math.random() * 3 : 4 + Math.random() * 3,
+    size: lightMode === "crow" ? 5 + Math.random() * 5 : 4 + Math.random() * 5,
     phase: Math.random() * Math.PI * 2,
+    color: SPARK_TONES[Math.floor(Math.random() * SPARK_TONES.length)],
+    tone: lightMode === "leaf" ? LEAF_TONES[leafTone++ % LEAF_TONES.length] : null,
   });
 }
 
 function scatter(x, y, time) {
   if (lightMode !== "sparkle") {
     addLight(x, y, time);
+    if (lightMode === "leaf" || Math.random() < .48) addLight(x + (Math.random() - .5) * 24, y + (Math.random() - .5) * 24, time);
     return;
   }
   addLight(x, y, time, true);
-  for (let i = 0; i < 4; i++) {
-    addLight(x + (Math.random() - .5) * 12, y + (Math.random() - .5) * 12, time);
+  if (Math.random() < .35) addLight(x + (Math.random() - .5) * 24, y + (Math.random() - .5) * 24, time, true);
+  for (let i = 0; i < 6; i++) {
+    addLight(x + (Math.random() - .5) * 23, y + (Math.random() - .5) * 23, time);
   }
 }
 
 function particleLimit() {
-  return lightMode === "sparkle" ? MAX_LIGHTS : lightMode === "crow" ? 100 : 180;
+  return lightMode === "sparkle" ? MAX_LIGHTS : lightMode === "crow" ? 140 : 240;
 }
 
 function drawMotif(light, x, y, time, seconds, opacity) {
@@ -97,18 +112,25 @@ function drawMotif(light, x, y, time, seconds, opacity) {
   context.globalAlpha = opacity;
   context.translate(x, y);
   if (lightMode === "crow") {
-    const flap = reducedMotion.matches ? -4 : Math.sin(time * .018 + light.phase) * 5;
+    const flap = reducedMotion.matches ? -4 : Math.sin(time * .018 + light.phase) * 6;
     context.scale((light.vx < 0 ? -1 : 1) * light.size / 8, light.size / 8);
-    context.fillStyle = "#32364b";
-    context.strokeStyle = "#a3a8bc";
+    context.fillStyle = "#292c41";
+    context.strokeStyle = "#a5a3c6";
     context.lineWidth = .65;
+    context.beginPath();
+    context.moveTo(0, 1);
+    context.quadraticCurveTo(3, -11 - flap * .5, 11, -8 - flap * .5);
+    context.quadraticCurveTo(10, -1, 3, 4);
+    context.fill();
+    context.stroke();
+    context.fillStyle = "#454765";
     context.beginPath();
     context.moveTo(-1, 0);
     context.quadraticCurveTo(-7, -10 + flap, -12, -5 + flap);
     context.quadraticCurveTo(-9, 3, -2, 3);
     context.fill();
     context.stroke();
-    context.fillStyle = "#202332";
+    context.fillStyle = "#171b2a";
     context.beginPath();
     context.ellipse(0, 2, 4.5, 5.2, -.25, 0, Math.PI * 2);
     context.fill();
@@ -128,24 +150,58 @@ function drawMotif(light, x, y, time, seconds, opacity) {
     context.beginPath();
     context.arc(4.2, -4.3, .75, 0, Math.PI * 2);
     context.fill();
+    context.globalAlpha = opacity * .7;
+    context.fillStyle = "#c5b8e5";
+    context.fillRect(-15, -3 + flap * .25, 1.6, 1.6);
+    context.fillRect(-19, 2, 1, 1);
   } else {
     context.rotate(light.phase + (reducedMotion.matches ? 0 : seconds * 1.4));
     context.scale(1, .65 + Math.abs(Math.sin(seconds * 2 + light.phase)) * .35);
-    context.fillStyle = "#9599a5";
-    context.strokeStyle = "#c8cbd3";
+    context.fillStyle = light.tone[0];
+    context.strokeStyle = light.tone[1];
     context.lineWidth = .6;
     context.beginPath();
     context.moveTo(-light.size, 0);
-    context.quadraticCurveTo(0, -light.size, light.size, 0);
-    context.quadraticCurveTo(0, light.size * .8, -light.size, 0);
+    context.bezierCurveTo(-light.size * .5, -light.size, light.size * .3, -light.size * .5, light.size, 0);
+    context.bezierCurveTo(light.size * .1, light.size * .9, -light.size * .7, light.size * .5, -light.size, 0);
     context.fill();
     context.stroke();
     context.beginPath();
     context.moveTo(-light.size - 2, 0);
     context.lineTo(light.size * .8, 0);
+    for (let i = -1; i <= 1; i++) {
+      context.moveTo(light.size * i * .28, 0);
+      context.lineTo(light.size * (i - 1) * .28, -light.size * .34);
+      context.moveTo(light.size * i * .28, 0);
+      context.lineTo(light.size * (i - 1) * .28, light.size * .28);
+    }
     context.stroke();
   }
   context.restore();
+}
+
+function advanceForest(delta, stepX, stepY) {
+  if (reducedMotion.matches || document.body.dataset.view !== "forest") {
+    travelSpeed = 0;
+    depth.style.opacity = "0";
+    return;
+  }
+  const movement = Math.hypot(stepX, stepY);
+  const pace = movement > .025 ? Math.min(1, .18 + movement / Math.max(delta, 1) * 1.5) : 0;
+  travelSpeed += (pace - travelSpeed) * (1 - Math.exp(-delta / 240));
+  if (travelSpeed < .002) {
+    travelSpeed = 0;
+    return;
+  }
+  travelDistance += delta * travelSpeed * .0002;
+  travelPan += ((.5 - fairyX / Math.max(1, width)) * 72 - travelPan) * (1 - Math.exp(-delta / 300));
+  depth.style.opacity = String(Math.min(1, travelDistance * 3.2));
+  // Overlap two staggered passes so neither background visibly jumps back.
+  depthPlanes.forEach((plane, index) => {
+    const phase = (travelDistance + index * .5) % 1;
+    plane.style.opacity = String(Math.sin(Math.PI * phase) ** 2);
+    plane.style.transform = `translate3d(${travelPan * (.5 + phase)}px, 0, 0) scale(${1 + phase * .62})`;
+  });
 }
 
 function startAnimation() {
@@ -164,11 +220,14 @@ function drawScene(time) {
   if (Math.abs(horizontalDistance) > .5) {
     fairy.dataset.facing = horizontalDistance < 0 ? "left" : "right";
   }
-  fairyX += (targetX - fairyX) * follow;
-  fairyY += (targetY - fairyY) * follow;
+  const stepX = horizontalDistance * follow;
+  const stepY = (targetY - fairyY) * follow;
+  fairyX += stepX;
+  fairyY += stepY;
   positionFairy();
+  advanceForest(delta, stepX, stepY);
 
-  if (forest.dataset.state === "awake" && time - lastFairySparkle > (lightMode === "sparkle" ? 40 : 150)) {
+  if (forest.dataset.state === "awake" && time - lastFairySparkle > (lightMode === "sparkle" ? 36 : 110)) {
     const x = fairyX + (Math.random() - .5) * fairyWidth * .65;
     const y = fairyY - fairyHeight * .16;
     if (lightMode === "sparkle") addLight(x, y, time);
@@ -183,27 +242,28 @@ function drawScene(time) {
     const seconds = (time - light.born) / 1000;
     const age = (time - light.born) / light.lifetime;
     const movement = reducedMotion.matches ? .15 : 1;
-    const x = light.x + light.vx * seconds * movement;
-    const y = light.y + (light.vy * seconds + 3 * seconds * seconds) * movement;
+    const sway = lightMode === "leaf" ? 13 : lightMode === "crow" ? 7 : 2;
+    const x = light.x + (light.vx * seconds + Math.sin(seconds * 3 + light.phase) * sway) * movement;
+    const y = light.y + (light.vy * seconds + 3 * seconds * seconds + (lightMode === "crow" ? Math.sin(seconds * 5 + light.phase) * 5 : 0)) * movement;
     if (lightMode !== "sparkle") {
       drawMotif(light, x, y, time, seconds, Math.min(1, (1 - age) * 2));
       continue;
     }
     const twinkle = reducedMotion.matches ? .75 : .22 + .78 * Math.pow(Math.sin(time * .006 + light.phase), 4);
     const opacity = Math.pow(1 - age, 1.3) * twinkle;
-    const glowSize = light.star ? 30 : 12;
+    const glowSize = light.star ? 43 : 16;
     context.globalAlpha = opacity * .8;
     context.globalCompositeOperation = "screen";
     context.drawImage(glow, x - glowSize / 2, y - glowSize / 2, glowSize, glowSize);
     context.globalCompositeOperation = "source-over";
     context.globalAlpha = opacity;
-    context.fillStyle = "#fff";
+    context.fillStyle = light.color;
     context.beginPath();
     context.arc(x, y, light.radius, 0, Math.PI * 2);
     context.fill();
 
     if (light.star) {
-      const size = light.radius * (2 + twinkle * 2.5);
+      const size = light.radius * (2.1 + twinkle * 3.7);
       context.save();
       context.translate(x, y);
       context.rotate(light.phase + seconds * .12);
@@ -223,7 +283,7 @@ function drawScene(time) {
   }
   context.globalAlpha = 1;
   const following = Math.hypot(targetX - fairyX, targetY - fairyY) > .2;
-  const animate = lights.length || following || forest.dataset.state === "awake" || webcam.active;
+  const animate = lights.length || following || travelSpeed || forest.dataset.state === "awake" || webcam.active;
   animationFrame = animate ? requestAnimationFrame(drawScene) : null;
 }
 
@@ -290,10 +350,45 @@ lightPreset.addEventListener("change", () => {
   assetStatus.textContent = `불빛: ${lightPreset.selectedOptions[0].textContent}`;
 });
 
-document.getElementById("enter-forest").addEventListener("click", () => {
-  const panel = document.querySelector(".control-panel");
-  document.body.append(panel);
-  document.body.dataset.view = "forest";
-  document.getElementById("intro-screen").hidden = true;
-  forest.focus({ preventScroll: true });
+const intro = document.getElementById("intro-screen");
+const introSettings = document.querySelector(".intro-settings");
+const panel = document.querySelector(".control-panel");
+const enter = document.getElementById("enter-forest");
+
+function showForest(inside) {
+  document.body.dataset.view = inside ? "forest" : "intro";
+  if (inside) {
+    document.body.append(panel);
+    intro.hidden = true;
+    forest.focus({ preventScroll: true });
+  } else {
+    clearTimeout(idleTimer);
+    forest.dataset.state = "resting";
+    previousPoint = null;
+    lights = [];
+    targetX = fairyX;
+    targetY = fairyY;
+    travelDistance = travelSpeed = travelPan = 0;
+    depth.style.opacity = "0";
+    context.clearRect(0, 0, width, height);
+    introSettings.append(panel);
+    intro.hidden = false;
+    intro.scrollTop = 0;
+    enter.focus({ preventScroll: true });
+  }
+}
+
+enter.addEventListener("click", () => {
+  history.pushState({ forestPractice: true }, "", "#forest");
+  showForest(true);
 });
+
+document.getElementById("leave-forest").addEventListener("click", () => {
+  if (history.state?.forestPractice) history.back();
+  else {
+    history.replaceState(null, "", location.href.split("#")[0]);
+    showForest(false);
+  }
+});
+window.addEventListener("popstate", () => showForest(location.hash === "#forest"));
+if (location.hash === "#forest") showForest(true);

@@ -8,13 +8,14 @@
   <title>숲 속의 나 v2 · 달빛 요정</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="style.css">
+  <script src="audio.js" defer></script>
   <script src="webcam.js" defer></script>
   <script src="script.js" defer></script>
 </head>
 <body data-view="intro">
   <main class="forest" id="forest" data-state="resting" data-background="moonlit" aria-labelledby="title" tabindex="-1">
     <p class="sr-only">마우스를 움직이면 숲이 밝아지고 날개와 머리띠가 있는 요정이 따라옵니다. 작은 흰 별빛과 반짝이가 흩날립니다. 2초 동안 움직이지 않으면 다시 어두워집니다.</p>
-    <div class="landscape" aria-hidden="true"></div>
+    <div class="landscape" aria-hidden="true"><div class="forest-depth" id="forest-depth"><div class="depth-plane" id="depth-a"></div><div class="depth-plane" id="depth-b"></div></div></div>
     <div class="moonlight" aria-hidden="true"></div>
     <div class="vignette" aria-hidden="true"></div>
     <div class="fairy" id="fairy" data-facing="right" aria-hidden="true">
@@ -40,6 +41,7 @@
   <aside class="control-panel" aria-label="숲과 요정 설정">
     <p class="intro-settings-title">숲에 들기 전</p>
     <h1 id="title" class="gothic-title" aria-label="숲 속의 나 v2"><span>숲</span> <span>속</span><span>의</span> <span>나</span> <small>v2</small></h1>
+    <button class="bgm-button" id="bgm-toggle" type="button" aria-pressed="false"><span aria-hidden="true">♪</span><strong id="bgm-label">BGM OFF</strong><span id="bgm-action">음악 켜기</span></button>
     <div class="camera-buttons">
       <button id="camera-on" type="button"><span class="camera-dot" aria-hidden="true"></span>웹캠 켜기</button>
       <button id="camera-off" type="button" disabled>끄기</button>
@@ -75,10 +77,12 @@
       </div>
     </div>
     <p id="asset-status" class="asset-status" role="status">마우스를 움직여 요정과 숲을 깨워보세요.</p>
+    <button class="leave-button" id="leave-forest" type="button"><span aria-hidden="true">←</span> 숲에서 나가기</button>
     <p class="privacy-note">웹캠 영상은 기기에서만 사용해요.</p>
   </aside>
     </div>
   </section>
   <video id="camera-video" autoplay muted playsinline hidden></video>
+  <audio id="forest-bgm" src="forest-bgm.wav" loop preload="none"></audio>
 </body>
 </html>
